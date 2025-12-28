@@ -46,11 +46,10 @@ export class playGame extends Phaser.Scene {
 
 
     jump(){
-        console.log("jumpp");
-        if( (this.playerJumps == 0 || this.playerJumps < gameOptions.jumps)){
-            if(this.player.body.touching.down){
-                this.playerJumps = 0;
-            }
+        if(this.player.body.touching.down){
+            this.playerJumps = 0;
+        }
+        if(this.playerJumps < gameOptions.jumps){
             this.player.setVelocityY(gameOptions.jumpForce * -1);
             this.playerJumps ++;
         }
@@ -67,16 +66,12 @@ export class playGame extends Phaser.Scene {
 
       this.playerJumps = 0;
     // add player
-    this.player = this.add.sprite(this.game.config.width * 1.5, 230, "player");
-
-
-    /*
     this.player = this.physics.add.sprite(this.game.config.width * 1.5, 230, "player");
     this.player.setGravityY(gameOptions.playerGravity);
-     this.player.setCollideWorldBounds(true);
+    this.player.setCollideWorldBounds(true);
     this.player.onWorldBounds = true;
     this.input.on("pointerdown", this.jump, this);
-    */
+    this.input.keyboard.on("keydown-SPACE", this.jump, this);
 
 
 
