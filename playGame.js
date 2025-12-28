@@ -65,6 +65,10 @@ export class playGame extends Phaser.Scene {
 
 
       this.playerJumps = 0;
+
+    // set physics bounds to match the level size
+    this.physics.world.setBounds(0, 0, 3323 + this.game.config.width, 310);
+
     // add player
     this.player = this.physics.add.sprite(this.game.config.width * 1.5, 230, "player");
     this.player.setGravityY(gameOptions.playerGravity);
