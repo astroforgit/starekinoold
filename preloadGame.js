@@ -21,6 +21,11 @@ export class preloadGame extends Phaser.Scene{
             frameHeight: 150,
         });
 
+        this.load.spritesheet("soldier", "assets/SoldierRun.png",{
+            frameWidth: 32,
+            frameHeight: 30, // Approximate height provided, frame width is 32. 14 frames.
+        });
+
     }
     create(){
       this.scene.start("PlayGame");

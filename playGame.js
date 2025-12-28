@@ -89,6 +89,30 @@ export class playGame extends Phaser.Scene {
     });
     this.player.play("fly");
 
+    // add soldier
+    this.soldier = this.physics.add.sprite(0, 230 + (150 - 30), "soldier"); // Adjust Y to align feet with player (player height ~150, soldier ~30)
+    // Wait, player Y is 230. Player is 150 high?
+    // Let's assume the Y coordinate is the center or top? Phaser default is center.
+    // If player (150px) is at 230.
+    // Soldier (30px) needs to be at the same "floor" level.
+    // If 230 is the center of the player: Bottom is 230 + 75 = 305.
+    // Soldier bottom should be 305. Center would be 305 - 15 = 290.
+    // Let's verify player alignment later, but for now try to align bottoms.
+    // Actually, let's just use a visually similar Y for now and refine if needed.
+    // If player is at 230, let's put soldier at 290 (since he is smaller).
+
+    this.soldier.setY(290); 
+    this.soldier.setCollideWorldBounds(true);
+    this.soldier.setVelocityX(100); // Run to right
+
+    this.anims.create({
+        key: "soldier_run",
+        frames: this.anims.generateFrameNumbers("soldier", { start: 0, end: 13 }),
+        frameRate: 14, // 14 frames
+        repeat: -1
+    });
+    this.soldier.play("soldier_run");
+    
     // allow key inputs to control the player
     this.cursors = this.input.keyboard.createCursorKeys();
 
