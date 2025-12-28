@@ -74,6 +74,12 @@ export class playGame extends Phaser.Scene {
     this.player.setGravityY(gameOptions.playerGravity);
     this.player.setCollideWorldBounds(true);
     this.player.onWorldBounds = true;
+    
+    // Adjust player hitbox (make it narrower and shorter if needed)
+    // Frame is 70x150. Let's try 40x100 centered at bottom.
+    this.player.body.setSize(40, 100);
+    this.player.body.setOffset(15, 50);
+
     this.input.on("pointerdown", this.jump, this);
     this.input.keyboard.on("keydown-SPACE", this.jump, this);
 
@@ -89,18 +95,33 @@ export class playGame extends Phaser.Scene {
     });
     this.player.play("fly");
 
-    // add soldier
-    this.soldier = this.physics.add.sprite(50, 255, "soldier"); // Adjusted Y for 50px height (feet at ~305)
-    this.soldier.setCollideWorldBounds(true);
-    this.soldier.setVelocityX(100); // Run to right
+    this.player.play("fly");
 
-    this.anims.create({
-        key: "soldier_run",
-        frames: this.anims.generateFrameNumbers("soldier", { start: 0, end: 11 }), // 12 frames (492/41)
-        frameRate: 12,
-        repeat: -1
+    // Create a group for soldiers
+    this.soldierGroup = this.physics.add.group();
+    // Create a group for pianos
+    this.pianoGroup = this.physics.add.group();
+
+    // Set up a timer to spawn soldiers continuously
+    this.time.addEvent({
+        delay: 2500, // Spawn every 2.5 seconds
+        callback: this.spawnSoldier,
+        callbackScope: this,
+        loop: true
     });
-    this.soldier.play("soldier_run");
+
+    // Set up a timer to spawn pianos
+    this.time.addEvent({
+        delay: 4000, // Spawn every 4 seconds
+        callback: this.spawnPiano,
+        callbackScope: this,
+        loop: true
+    });
+
+    // Add collision between player and soldiers
+    this.physics.add.collider(this.player, this.soldierGroup, this.hitSoldier, null, this);
+    // Add collision between player and pianos
+    this.physics.add.overlap(this.player, this.pianoGroup, this.hitSoldier, null, this);
     
     // allow key inputs to control the player
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -115,26 +136,119 @@ export class playGame extends Phaser.Scene {
 
   }
 
+  spawnSoldier() {
+     // Spawn soldier at the right edge of the visible camera view + buffer, or fixed world position?
+     // Since the camera moves, we should spawn relative to the camera or player.
+     // Let's spawn them ahead of the player.
+     let spawnX = this.myCam.scrollX + this.game.config.width + 100;
+     // Or just hardcode logic if the level is finite. The level is 3323 wide.
+     // If the player is near the end, stop spawning? The user said "appearing continuously".
+     
+     // Let's spawn 800px ahead of player, but ensure it's within world bounds if needed.
+     // Simplified: Spawn at camera right edge.
+     
+     let soldier = this.soldierGroup.create(spawnX, 285, "soldier");
+     soldier.setVelocityX(-150); // Move left slightly faster
+     soldier.setFlipX(true);
+     soldier.setCollideWorldBounds(false);
+     soldier.body.allowGravity = false; 
+     
+     // Adjust soldier hitbox. Frame is 41x50.
+     // Make it narrower, e.g., 20x40.
+     soldier.body.setSize(20, 40);
+     soldier.body.setOffset(10, 10);
+
+     // Animation
+     // We need to create the anim once in create(), not every spawn.
+     if (!this.anims.exists('soldier_run')) {
+        this.anims.create({
+            key: "soldier_run",
+            frames: this.anims.generateFrameNumbers("soldier", { start: 0, end: 11 }),
+            frameRate: 12,
+            repeat: -1
+        });
+     }
+     soldier.play("soldier_run");
+  }
+
+  spawnPiano() {
+      // Spawn within the visible area or slightly ahead
+      // Let's spawn it somewhere between current scrollX and scrollX + width
+      let minX = this.myCam.scrollX;
+      let maxX = this.myCam.scrollX + this.game.config.width;
+      let randomX = Phaser.Math.Between(minX, maxX);
+
+      let piano = this.pianoGroup.create(randomX, -100, "piano");
+      piano.setScale(0.5); // Increased from 0.15 to 0.5
+      piano.setAngularVelocity(Phaser.Math.Between(-100, 100)); // Rotate
+      piano.setVelocityY(200); // Initial downward velocity
+      
+      // Hitbox adjustment for larger scale
+      // Original size 319x361. At 0.5 scale, it's ~160x180.
+      piano.body.setSize(250, 250); 
+      piano.body.setOffset(35, 50);
+  }
+
+  hitSoldier(player, soldier) {
+      if (this.isGameOver) return;
+      this.isGameOver = true;
+
+      // Disable collision so he can fly out of bounds
+      this.player.setCollideWorldBounds(false);
+      
+      // Stop running animation
+      this.player.stop();
+      this.player.setTint(0xff0000); // Red tint for impact
+
+      // "Fly up 45 degrees" - combined X and Y velocity
+      // Assuming fly backwards (left) and up
+      this.player.setVelocity(-400, -500); 
+      
+      // "Rotate"
+      this.player.setAngularVelocity(360);
+      
+      // Disable further input
+      this.input.enabled = false;
+  }
+
 
   update() {
-
-    // move the player when the arrow keys are pressed
-    if (this.cursors.left.isDown && this.player.x > 0) {
-      this.player.x -= 6;
-      this.player.scaleX = -1;
-
-    } else if (this.cursors.right.isDown && this.player.x < 3323+this.game.config.width) {
-      this.player.x += 6;
-      this.player.scaleX = 1;
+    if (this.isGameOver) {
+        // Check if player is off screen (below bottom or above top or too far left/right)
+        // Since we fling him Up (-Y), check if Y < -50 or Y > gameHeight
+        if (this.player.y < -100 || this.player.y > this.game.config.height + 100) {
+            this.scene.restart();
+            this.isGameOver = false;
+            this.input.enabled = true;
+        }
+        return; // Skip normal update logic
     }
 
-    // scroll the textue of the tilesprites proportionally to the camera scroll
-    /*
-    this.bg_1.tilePositionX = this.myCam.scrollX * .3;
-    this.bg_2.tilePositionX = this.myCam.scrollX * .6;
-    this.ground.tilePositionX = this.myCam.scrollX;
-  */
-    this.stare.tilePositionX = this.myCam.scrollX * .6;
+    // move the player when the arrow keys are pressed
+    if (this.cursors.left.isDown) {
+      this.player.setVelocityX(-200);
+      this.player.scaleX = -1;
+    } else if (this.cursors.right.isDown) {
+      this.player.setVelocityX(200);
+      this.player.scaleX = 1;
+    } else {
+      this.player.setVelocityX(0);
+    }
 
+    // Recycle soldiers
+    this.soldierGroup.children.each((soldier) => {
+        if (soldier.active && soldier.x < this.myCam.scrollX - 50) {
+            soldier.destroy();
+        }
+    });
+
+    // Recycle pianos
+    this.pianoGroup.children.each((piano) => {
+        if (piano.active && piano.y > this.game.config.height + 50) {
+            piano.destroy();
+        }
+    });
+
+    this.stare.tilePositionX = this.myCam.scrollX * .6;
   }
 }

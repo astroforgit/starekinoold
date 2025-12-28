@@ -26,6 +26,8 @@ export class preloadGame extends Phaser.Scene{
             frameHeight: 50,
         });
 
+        this.load.image("piano", "assets/piano.png");
+
     }
     create(){
       this.scene.start("PlayGame");
