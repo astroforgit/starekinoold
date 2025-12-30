@@ -31,7 +31,7 @@ export const gameOptions = {
     playerStartPosition: 200,
 
     // consecutive jumps allowed
-    jumps: 20,
+    jumps: 2,
 
     // % of probability a coin appears on the platform
     coinPercent: 25
@@ -46,9 +46,6 @@ export class playGame extends Phaser.Scene {
 
 
     jump(){
-        if(this.player.body.touching.down){
-            this.playerJumps = 0;
-        }
         if(this.playerJumps < gameOptions.jumps){
             this.player.setVelocityY(gameOptions.jumpForce * -1);
             this.playerJumps ++;
@@ -76,9 +73,10 @@ export class playGame extends Phaser.Scene {
     this.player.onWorldBounds = true;
     
     // Adjust player hitbox (make it narrower and shorter if needed)
-    // Frame is 70x150. Let's try 40x100 centered at bottom.
-    this.player.body.setSize(40, 100);
-    this.player.body.setOffset(15, 50);
+    // Frame is 70x150.
+    // Body height 130 (30% more than previous 100).
+    this.player.body.setSize(40, 130);
+    this.player.body.setOffset(15, 20); // Moved offset up to accommodate height change
 
     this.input.on("pointerdown", this.jump, this);
     this.input.keyboard.on("keydown-SPACE", this.jump, this);
@@ -101,10 +99,14 @@ export class playGame extends Phaser.Scene {
     this.soldierGroup = this.physics.add.group();
     // Create a group for pianos
     this.pianoGroup = this.physics.add.group();
+    // Create a group for cosmic objects
+    this.cosmicGroup = this.physics.add.group();
+    // Create a group for python objects
+    this.pythonGroup = this.physics.add.group();
 
     // Set up a timer to spawn soldiers continuously
     this.time.addEvent({
-        delay: 2500, // Spawn every 2.5 seconds
+        delay: 4000, // Spawn every 4 seconds (easier)
         callback: this.spawnSoldier,
         callbackScope: this,
         loop: true
@@ -112,8 +114,24 @@ export class playGame extends Phaser.Scene {
 
     // Set up a timer to spawn pianos
     this.time.addEvent({
-        delay: 4000, // Spawn every 4 seconds
+        delay: 8000, // Spawn every 8 seconds
         callback: this.spawnPiano,
+        callbackScope: this,
+        loop: true
+    });
+
+    // Set up a timer to spawn cosmic objects
+    this.time.addEvent({
+        delay: 12000, // Spawn every 12 seconds
+        callback: this.spawnCosmic,
+        callbackScope: this,
+        loop: true
+    });
+
+    // Set up a timer to spawn python objects
+    this.time.addEvent({
+        delay: 10000, // Spawn every 10 seconds
+        callback: this.spawnPython,
         callbackScope: this,
         loop: true
     });
@@ -122,6 +140,10 @@ export class playGame extends Phaser.Scene {
     this.physics.add.collider(this.player, this.soldierGroup, this.hitSoldier, null, this);
     // Add collision between player and pianos
     this.physics.add.overlap(this.player, this.pianoGroup, this.hitSoldier, null, this);
+    // Add collision between player and cosmic objects
+    this.physics.add.overlap(this.player, this.cosmicGroup, this.hitSoldier, null, this);
+    // Add collision between player and python objects
+    this.physics.add.overlap(this.player, this.pythonGroup, this.hitSoldier, null, this);
     
     // allow key inputs to control the player
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -189,6 +211,67 @@ export class playGame extends Phaser.Scene {
       piano.body.setOffset(35, 50);
   }
 
+  spawnCosmic() {
+      let minX = this.myCam.scrollX;
+      let maxX = this.myCam.scrollX + this.game.config.width;
+      let randomX = Phaser.Math.Between(minX, maxX);
+
+      let cosmic = this.cosmicGroup.create(randomX, -150, "cosmic");
+      
+      // Create animation if it doesn't exist
+      if (!this.anims.exists('cosmic_anim')) {
+          this.anims.create({
+              key: 'cosmic_anim',
+              frames: this.anims.generateFrameNumbers('cosmic', { start: 0, end: 27 }),
+              frameRate: 20,
+              repeat: -1
+          });
+      }
+      cosmic.play('cosmic_anim');
+
+      cosmic.setScale(0.8); 
+      cosmic.setAngularVelocity(Phaser.Math.Between(-150, 150)); 
+      cosmic.setVelocityY(150);
+      
+      // Hitbox adjustment for 192x108 frame
+      cosmic.body.setSize(80, 80); 
+      cosmic.body.setOffset(56, 14);
+  }
+
+  spawnPython() {
+     let spawnX = this.myCam.scrollX + this.game.config.width + 100;
+     
+     // Spawn higher to align bottom. Player bottom ~305.
+     // Frame height 46 * 3 = 138. 305 - 138/2 = ~236.
+     let python = this.pythonGroup.create(spawnX, 236, "python");
+     python.setVelocityX(-120); 
+     python.setFlipX(true);
+     python.setCollideWorldBounds(false);
+     python.body.allowGravity = false;
+     
+     // Animation
+     if (!this.anims.exists('python_anim')) {
+        this.anims.create({
+            key: 'python_anim',
+            frames: this.anims.generateFrameNumbers('python', { start: 0, end: 11 }),
+            frameRate: 10,
+            repeat: -1
+        });
+     }
+     python.play('python_anim');
+     
+     python.setScale(3.0); // Scale 300%
+     
+     // Hitbox adjustment for scale 3.0
+     // Visual size: ~100x138.
+     python.body.setSize(20, 40); // Base size before scale? No, setSize is relative to unscaled? 
+     // Phaser bodies scale with the sprite unless sync is weird. 
+     // Usually better to set size close to frame size and let scale handle it, or specific pixels.
+     // Let's set it to match the visual "man" part.
+     python.body.setSize(20, 35); 
+     python.body.setOffset(6, 6); 
+  }
+
   hitSoldier(player, soldier) {
       if (this.isGameOver) return;
       this.isGameOver = true;
@@ -224,13 +307,26 @@ export class playGame extends Phaser.Scene {
         return; // Skip normal update logic
     }
 
+    // Reset jump counter when touching down or blocked by world bounds bottom
+    if (this.player.body.touching.down || this.player.body.blocked.down) {
+        this.playerJumps = 0;
+    }
+
     // move the player when the arrow keys are pressed
     if (this.cursors.left.isDown) {
       this.player.setVelocityX(-200);
-      this.player.scaleX = -1;
+      this.player.setFlipX(true);
+      // If the body is too far right (offset 15), we need to shift it left?
+      // Or if flipX handles texture but body stays...
+      // Let's try adjusting offset for flip.
+      // If it looks "on the right", we need to move the body LEFT.
+      // Let's try offset 0? Or maybe negative? No, offset is 0 to width.
+      // Let's keep 15 but ensure flip works.
+      this.player.body.setOffset(15, 20); 
     } else if (this.cursors.right.isDown) {
       this.player.setVelocityX(200);
-      this.player.scaleX = 1;
+      this.player.setFlipX(false);
+      this.player.body.setOffset(15, 20);
     } else {
       this.player.setVelocityX(0);
     }
@@ -246,6 +342,20 @@ export class playGame extends Phaser.Scene {
     this.pianoGroup.children.each((piano) => {
         if (piano.active && piano.y > this.game.config.height + 50) {
             piano.destroy();
+        }
+    });
+
+    // Recycle cosmic objects
+    this.cosmicGroup.children.each((cosmic) => {
+        if (cosmic.active && cosmic.y > this.game.config.height + 50) {
+            cosmic.destroy();
+        }
+    });
+
+    // Recycle python objects
+    this.pythonGroup.children.each((python) => {
+        if (python.active && python.x < this.myCam.scrollX - 100) {
+            python.destroy();
         }
     });
 

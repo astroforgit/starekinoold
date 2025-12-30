@@ -12,7 +12,8 @@ physics: {
     arcade: {
         gravity: {
         y: 0
-        }
+        },
+        debug: true // Enable debug to see collision boxes
     }
 },
 scene: [preloadGame, playGame]

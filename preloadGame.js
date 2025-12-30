@@ -27,6 +27,15 @@ export class preloadGame extends Phaser.Scene{
         });
 
         this.load.image("piano", "assets/piano.png");
+        this.load.spritesheet("cosmic", "assets/spritecosmic.png", {
+            frameWidth: 192,
+            frameHeight: 108
+        });
+
+        this.load.spritesheet("python", "assets/python.png", {
+            frameWidth: 33,
+            frameHeight: 46
+        });
 
     }
     create(){
